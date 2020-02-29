@@ -5,7 +5,7 @@
 
 var theWebUI = 
 {
-        version: "3.8",
+        version: "3.9",
 	tables:
 	{
 		trt: 
@@ -24,10 +24,10 @@ var theWebUI =
 				{ text: theUILang.UL, 			width: "60px", 	id: "ul",		type: TYPE_NUMBER },
 				{ text: theUILang.ETA, 			width: "60px", 	id: "eta",		type: TYPE_NUMBER },
 				{ text: theUILang.Label, 		width: "60px", 	id: "label",		type: TYPE_STRING },
-				{ text: theUILang.Peers, 		width: "60px", 	id: "peers",		type: TYPE_NUMBER },
-				{ text: theUILang.Seeds, 		width: "60px", 	id: "seeds",		type: TYPE_NUMBER },
+				{ text: theUILang.Peers, 		width: "60px", 	id: "peers",		type: TYPE_PEERS },
+				{ text: theUILang.Seeds, 		width: "60px", 	id: "seeds",		type: TYPE_SEEDS },
 				{ text: theUILang.Priority, 		width: "80px", 	id: "priority",		type: TYPE_NUMBER },
-				{ text: theUILang.Created_on,		width: "100px", id: "created",		type: TYPE_NUMBER },
+				{ text: theUILang.Created_on,		width: "110px", id: "created",		type: TYPE_NUMBER },
 				{ text: theUILang.Remaining, 		width: "90px", 	id: "remaining",	type: TYPE_NUMBER },
 				{ text: theUILang.Save_path,		width: "200px", id: "save_path",	type: TYPE_STRING }
 			],
@@ -109,7 +109,7 @@ var theWebUI =
 			ondblclick:	function(obj) 
 			{ 
 				if(obj.id && theWebUI.peers[obj.id])
-					window.open(theURLs.RIPEURL + theWebUI.peers[obj.id].ip, "_blank");
+					window.open(theURLs.RIPEURL + theWebUI.peers[obj.id].ip.replace(/^\[?(.+?)\]?$/, '$1'), "_blank");
 				return(false);
 			}
 		},
@@ -801,7 +801,7 @@ var theWebUI =
 			if((/^webui\./).test(i))
 				cookie[i] = v;
 		});
-		theWebUI.request("?action=setuisettings&v=" + json_encode(cookie),reply);
+		theWebUI.request("?action=setuisettings&v=" + JSON.stringify(cookie),reply);
 	},
 
 //
@@ -895,31 +895,32 @@ var theWebUI =
    		if(e.which!=3) 
       			return(false);
    		theContextMenu.clear();
-		theContextMenu.add([theUILang.peerAdd, 
-			(this.dID && 
-				$type(this.torrents[this.dID]) && 
+   		if(this.dID && $type(this.torrents[this.dID]))
+   		{
+			theContextMenu.add([theUILang.peerAdd, 
 				(this.torrents[this.dID].private==0) && 
 				this.isTorrentCommandEnabled('addpeer',this.dID) &&
-				(theWebUI.systemInfo.rTorrent.iVersion>=0x804)) ? 
-			"theDialogManager.show('padd')"	: null]);
-		if(theWebUI.systemInfo.rTorrent.iVersion>=0x807)
-		{
-			theContextMenu.add([theUILang.peerBan, this.isTorrentCommandEnabled('ban',this.dID) ? "theWebUI.setPeerState('ban')" : null]);
-			theContextMenu.add([theUILang.peerKick, this.isTorrentCommandEnabled('kick',this.dID) ? "theWebUI.setPeerState('kick')" : null]);
-	   		if(this.getTable("prs").selCount > 1) 
-   			{
-				theContextMenu.add([theUILang.peerSnub, this.isTorrentCommandEnabled('snub',this.dID) ? "theWebUI.setPeerState('snub')" : null]);
-				theContextMenu.add([theUILang.peerUnsnub, this.isTorrentCommandEnabled('unsnub',this.dID) ? "theWebUI.setPeerState('unsnub')" : null]);
-			}
-			else
-                	{
-      				if(!this.peers[id].snubbed) 
-      					theContextMenu.add([theUILang.peerSnub, this.isTorrentCommandEnabled('snub',this.dID) ? "theWebUI.setPeerState('snub')" : null]);
-				else
+				(theWebUI.systemInfo.rTorrent.iVersion>=0x804) ? 
+				"theDialogManager.show('padd')"	: null]);
+			if(theWebUI.systemInfo.rTorrent.iVersion>=0x807)
+			{
+				theContextMenu.add([theUILang.peerBan, this.isTorrentCommandEnabled('ban',this.dID) ? "theWebUI.setPeerState('ban')" : null]);
+				theContextMenu.add([theUILang.peerKick, this.isTorrentCommandEnabled('kick',this.dID) ? "theWebUI.setPeerState('kick')" : null]);
+		   		if(this.getTable("prs").selCount > 1) 
+   				{
+					theContextMenu.add([theUILang.peerSnub, this.isTorrentCommandEnabled('snub',this.dID) ? "theWebUI.setPeerState('snub')" : null]);
 					theContextMenu.add([theUILang.peerUnsnub, this.isTorrentCommandEnabled('unsnub',this.dID) ? "theWebUI.setPeerState('unsnub')" : null]);
-      			}
+				}
+				else
+                		{
+      					if(!this.peers[id].snubbed) 
+      						theContextMenu.add([theUILang.peerSnub, this.isTorrentCommandEnabled('snub',this.dID) ? "theWebUI.setPeerState('snub')" : null]);
+					else
+						theContextMenu.add([theUILang.peerUnsnub, this.isTorrentCommandEnabled('unsnub',this.dID) ? "theWebUI.setPeerState('unsnub')" : null]);
+      				}
+			}
+	                theContextMenu.add([CMENU_SEP]); 
 		}
-                theContextMenu.add([CMENU_SEP]); 
 		theContextMenu.add([theUILang.peerDetails, (this.getTable("prs").selCount > 1) ? null : "theWebUI.getTable('prs').ondblclick({ id: '"+id+"'})"]); 
 		return(true);
    	},
@@ -1021,28 +1022,31 @@ var theWebUI =
    		if(e.which!=3) 
       			return(false);
    		theContextMenu.clear();
-   		if(this.getTable("trk").selCount > 1) 
+   		if( this.dID && $type(this.trackers[this.dID]) )
    		{
-      			theContextMenu.add([theUILang.EnableTracker, this.isTorrentCommandEnabled('trkstate',this.dID) ? "theWebUI.setTrackerState('" + this.dID + "',1)" : null]);
-      			theContextMenu.add([theUILang.DisableTracker, this.isTorrentCommandEnabled('trkstate',this.dID) ? "theWebUI.setTrackerState('" + this.dID + "',0)" : null]);
-      		}
-   		else 
-   		{
-      			if(this.trackers[this.dID][ind].enabled == 0) 
-      			{
+	   		if(this.getTable("trk").selCount > 1) 
+   			{
       				theContextMenu.add([theUILang.EnableTracker, this.isTorrentCommandEnabled('trkstate',this.dID) ? "theWebUI.setTrackerState('" + this.dID + "',1)" : null]);
-	      			theContextMenu.add([theUILang.DisableTracker]);
-         		}
-      			else 
-      			{
-	      			theContextMenu.add([theUILang.EnableTracker]);
       				theContextMenu.add([theUILang.DisableTracker, this.isTorrentCommandEnabled('trkstate',this.dID) ? "theWebUI.setTrackerState('" + this.dID + "',0)" : null]);
-         		}
-      		}
-		if(theWebUI.systemInfo.rTorrent.iVersion>=0x809)
-		{
-	   		theContextMenu.add([CMENU_SEP]);
-			theContextMenu.add([theUILang.updateTracker, this.isTorrentCommandEnabled("updateTracker",this.dID) ? "theWebUI.updateTracker()" : null]);
+	      		}
+   			else 
+   			{
+      				if(this.trackers[this.dID][ind].enabled == 0) 
+	      			{
+      					theContextMenu.add([theUILang.EnableTracker, this.isTorrentCommandEnabled('trkstate',this.dID) ? "theWebUI.setTrackerState('" + this.dID + "',1)" : null]);
+	      				theContextMenu.add([theUILang.DisableTracker]);
+         			}
+	      			else 
+      				{
+	      				theContextMenu.add([theUILang.EnableTracker]);
+      					theContextMenu.add([theUILang.DisableTracker, this.isTorrentCommandEnabled('trkstate',this.dID) ? "theWebUI.setTrackerState('" + this.dID + "',0)" : null]);
+	         		}
+      			}
+			if(theWebUI.systemInfo.rTorrent.iVersion>=0x809)
+			{
+		   		theContextMenu.add([CMENU_SEP]);
+				theContextMenu.add([theUILang.updateTracker, this.isTorrentCommandEnabled("updateTracker",this.dID) ? "theWebUI.updateTracker()" : null]);
+			}
 		}
 		return(true);
    	},
@@ -1341,12 +1345,23 @@ var theWebUI =
       		}
    	},
 
+        trtDeselect: function() 
+	{
+		var table = this.getTable("trt");
+		var sr = table.rowSel;
+		for(var k in sr)
+			sr[k] = false;
+		table.refreshRows();
+	},
+
    	createMenu: function(e, id) 
 	{
    		var table = this.getTable("trt");
    		theContextMenu.clear();
    		if(table.selCount > 1) 
    		{
+			theContextMenu.add([CMENU_SEL, "> " + table.selCount + " torrents", "theWebUI.trtDeselect()"]);
+			theContextMenu.add([CMENU_SEP]);
       			theContextMenu.add([theUILang.Start, "theWebUI.start()"]);
       			theContextMenu.add([theUILang.Pause, "theWebUI.pause()"]);
       			theContextMenu.add([theUILang.Stop, "theWebUI.stop()"]);
@@ -1355,6 +1370,8 @@ var theWebUI =
    		}
    		else 
    		{
+			theContextMenu.add([CMENU_SEL, "> 1 torrent", "theWebUI.trtDeselect()"]);
+			theContextMenu.add([CMENU_SEP]);
    			theContextMenu.add([theUILang.Start, this.isTorrentCommandEnabled("start",id) ? "theWebUI.start()" : null]);
    			theContextMenu.add([theUILang.Pause, (this.isTorrentCommandEnabled("pause",id) || this.isTorrentCommandEnabled("unpause",id)) ? "theWebUI.pause()" : null]);
    			theContextMenu.add([theUILang.Stop, this.isTorrentCommandEnabled("stop",id) ? "theWebUI.stop()" : null]);
@@ -1371,17 +1388,16 @@ var theWebUI =
 			theContextMenu.add([theUILang.updateTracker, this.isTorrentCommandEnabled("updateTracker",id) ? "theWebUI.updateTracker()" : null]);
    		theContextMenu.add([CMENU_SEP]);
    		var _bf = [];
-   		for(var lbl in this.cLabels) 
+		_bf.push([theUILang.New_label, (table.selCount > 1) || this.isTorrentCommandEnabled("setlabel",id) ? "theWebUI.newLabel()" : null]);
+   		_bf.push([theUILang.Remove_label, (table.selCount > 1) || this.isTorrentCommandEnabled("setlabel",id) ? "theWebUI.removeLabel()" : null]);
+   		_bf.push([CMENU_SEP]);
+		for(var lbl in this.cLabels) 
    		{
       			if((table.selCount == 1) && (this.torrents[id].label == lbl))
          			_bf.push([CMENU_SEL, lbl+" "]);
       			else 
          			_bf.push([lbl+" ", (table.selCount > 1) || this.isTorrentCommandEnabled("setlabel",id) ? "theWebUI.setLabel('" + addslashes(lbl) + "')" : null]);
       		}
-      		if(_bf.length>0)
-	   		_bf.push([CMENU_SEP]);
-   		_bf.push([theUILang.New_label, (table.selCount > 1) || this.isTorrentCommandEnabled("setlabel",id) ? "theWebUI.newLabel()" : null]);
-   		_bf.push([theUILang.Remove_label, (table.selCount > 1) || this.isTorrentCommandEnabled("setlabel",id) ? "theWebUI.removeLabel()" : null]);
    		theContextMenu.add([CMENU_CHILD, theUILang.Labels, _bf]);
    		theContextMenu.add([CMENU_SEP]);
    		var _c0 = [];
@@ -1552,7 +1568,7 @@ var theWebUI =
 			{	 
 				theWebUI.systemInfo.rTorrent.started = false;
 	   			theWebUI.error(status,text); 
-				if(theWebUI.settings["webui.retry_on_error"]!=0)
+				if(theWebUI.settings["webui.retry_on_error"])
 					theWebUI.setInterval( iv(theWebUI.settings["webui.retry_on_error"])*1000 );
 		   	});
    	},
@@ -1587,7 +1603,11 @@ var theWebUI =
 	 */
 	addTorrents: function(data)
 	{
-		theWebUI.systemInfo.rTorrent.started = true;
+		if(!theWebUI.systemInfo.rTorrent.started)
+		{
+			noty(theUILang.linkTorTorrentRestored,'success');
+			theWebUI.systemInfo.rTorrent.started = true;			
+		}
    		var table = this.getTable("trt");
    		var tul = 0;
 		var tdl = 0;
@@ -1821,13 +1841,19 @@ var theWebUI =
 			this.tegs[id].cnt = 0;
 	},
 
+	matchTeg: function(teg, name)
+	{
+		var pattern = teg.val.replace(/[-[\]{}()+?.,\\^$|#\s]/g, '\\$&');
+		return new RegExp(pattern.replace('*', '.+'), 'i').test(name);
+	},
+
 	updateTeg: function(id)
 	{
 		var teg = this.tegs[id];
-		var str = teg.val.toLowerCase();
+		var self = this;
 		$.each(this.torrents,function(hash,torrent)
 		{
-			if(torrent.name.toLowerCase().indexOf(str) >- 1)
+			if(self.matchTeg(teg, torrent.name))
 				teg.cnt++;
 		});
 		var counter = $("#"+id+"-c");
@@ -1843,11 +1869,10 @@ var theWebUI =
 	 */
 	updateTegs: function(torrent)
 	{
-	        var str = torrent.name.toLowerCase();
 		for( var id in this.tegs )
 		{
-		        var teg = this.tegs[id];
-			if(str.indexOf(teg.val.toLowerCase()) >- 1)
+			var teg = this.tegs[id];
+			if(this.matchTeg(teg, torrent.name))
 				teg.cnt++;
 		}
 	},
@@ -1857,6 +1882,15 @@ var theWebUI =
 		delete this.tegs[id];
 		$($$(id)).remove();
 		this.actLbl = "";
+		this.switchLabel($$("-_-_-all-_-_-"));
+	},
+
+	removeAllTegs: function()
+	{
+		for (var id in this.tegs) {
+			delete this.tegs[id];
+			$($$(id)).remove();
+		}
 		this.switchLabel($$("-_-_-all-_-_-"));
 	},
 
@@ -1877,6 +1911,7 @@ var theWebUI =
 			else
 				theContextMenu.clear();
 			theContextMenu.add([theUILang.removeTeg, "theWebUI.removeTeg('"+e.target.id+"');"]);
+			theContextMenu.add([theUILang.removeAllTegs, "theWebUI.removeAllTegs();"]);
 			theContextMenu.show(e.clientX,e.clientY);
 		}
 		else
@@ -2121,18 +2156,17 @@ var theWebUI =
 	        var table = this.getTable("trt");
 	        if($($$(this.actLbl)).hasClass("teg"))
 	        {
-	                var teg = this.tegs[this.actLbl];
-	                if(teg)
-	                {
-	        		if(table.getValueById(sId, "name").toLowerCase().indexOf(teg.val.toLowerCase()) >- 1)
-					table.unhideRow(sId);
-				else 
-					table.hideRow(sId);
-			}
+				var teg = this.tegs[this.actLbl];
+				if(teg)
+				{
+	        		if(this.matchTeg(teg, table.getValueById(sId, "name")))
+						table.unhideRow(sId);
+					else 
+						table.hideRow(sId);
+				}
 	        }
-	        else
-			if(table.getAttr(sId, "label").indexOf(this.actLbl) >- 1)
-				table.unhideRow(sId);
+	        else if(table.getAttr(sId, "label").indexOf(this.actLbl) >- 1)
+					table.unhideRow(sId);
 			else 
 				table.hideRow(sId);
 	},
@@ -2397,7 +2431,7 @@ var theWebUI =
 		if(h!==null)
         	{
 			$("#tdetails").height( h );
-			h-=($("#tabbar").height());
+			h-=($("#tabbar").outerHeight());
 			$("#tdcont").height( h );
 			h-=2;
         	}
